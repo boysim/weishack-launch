@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Weishack openen</title>
+<meta name="theme-color" content="#E9A531">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23E9A531'/%3E%3Ctext x='32' y='42' font-size='34' text-anchor='middle' fill='%23B23A2A' font-family='Arial' font-weight='bold'%3EW%3C/text%3E%3C/svg%3E">
+<style>
+ :root{
+   --gold:#E9A531;--red:#B23A2A;--ink:#222;--bg:#f6f6f4;--card:#fff;--line:#e3e3df;--mut:#777;
+ }
+ @media (prefers-color-scheme:dark){
+   :root:not([data-theme="light"]){
+     --ink:#eee;--bg:#1b1b1a;--card:#262625;--line:#3a3a38;--mut:#9a9a97;
+   }
+ }
+ *{box-sizing:border-box}
+ body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+      font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);
+      color:var(--ink);line-height:1.5}
+ .card{width:100%;max-width:420px;padding:28px 22px 34px}
+ .bar{background:var(--gold);color:#fff;font-weight:800;font-size:22px;letter-spacing:.5px;
+      padding:13px 18px;border-radius:12px}
+ .bar b{color:var(--red)}
+ h1{font-size:19px;margin:22px 0 6px}
+ p{color:var(--mut);margin:0 0 18px}
+ button,.btn{display:block;width:100%;text-align:center;text-decoration:none;border:0;
+      font-size:19px;font-weight:700;padding:16px;border-radius:14px;cursor:pointer;
+      margin:12px 0;font-family:inherit}
+ .primary{background:var(--red);color:#fff;box-shadow:0 2px 6px rgba(0,0,0,.15)}
+ .ghost{background:transparent;color:var(--red);border:1.5px solid var(--red)}
+ .row{display:flex;gap:8px;margin:12px 0}
+ .row input{flex:1;font-size:17px;padding:14px;border:1.5px solid var(--line);border-radius:12px;
+      background:var(--card);color:var(--ink)}
+ .row button{margin:0;width:auto;padding:14px 18px}
+ .status{min-height:22px;font-size:14px;color:var(--mut);text-align:center;margin:8px 0 0}
+ .status.err{color:var(--red)}
+ .hint{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--gold);
+       border-radius:10px;padding:12px 14px;font-size:14px;color:var(--mut);margin:16px 0 0}
+ .foot{color:var(--mut);font-size:12px;text-align:center;margin-top:24px}
+ a.link{color:var(--red)}
+ .hide{display:none}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="bar">-<b>weishack</b>-</div>
+
+  <!-- ANDROID / Web Bluetooth -->
+  <div id="androidView" class="hide">
+    <h1>Open je Weishack</h1>
+    <p>Tik op verbinden en kies <b>Weishack</b> in de lijst. Je toestel geeft zelf het juiste adres door.</p>
+    <button id="btConnect" class="primary">Verbind met Weishack</button>
+    <button id="btLast" class="ghost hide"></button>
+    <div id="btStatus" class="status"></div>
+    <div class="hint">Zet <b>Bluetooth aan</b> en sta dicht genoeg bij het toestel. Werkt niet van buitenshuis — gebruik daarvoor Tailscale.</div>
+  </div>
+
+  <!-- iOS / macOS -->
+  <div id="iosView" class="hide">
+    <h1>Je Weishack wordt geopend…</h1>
+    <p>Gebeurt er niets? Tik op de knop.</p>
+    <a id="iosLink" class="btn primary" href="#">Open Weishack</a>
+    <div class="hint">Werkt de naam niet? Dan is <b>weishack.local</b> op je netwerk niet vindbaar — vul hieronder het IP-adres in.</div>
+    <div class="row" style="margin-top:14px">
+      <input id="iosIp" inputmode="decimal" placeholder="bv. 192.168.0.50">
+      <button class="ghost" onclick="manual('iosIp')">Ga</button>
+    </div>
+  </div>
+
+  <!-- FALLBACK: geen Web Bluetooth (Firefox Android, desktop, …) -->
+  <div id="fallbackView" class="hide">
+    <h1>Open je Weishack</h1>
+    <p>Deze browser kan niet via Bluetooth verbinden. Probeer de naam, of vul het IP-adres in.</p>
+    <a id="fbLocal" class="btn primary" href="#">Probeer weishack.local</a>
+    <div class="row">
+      <input id="fbIp" inputmode="decimal" placeholder="bv. 192.168.0.50">
+      <button class="ghost" onclick="manual('fbIp')">Ga</button>
+    </div>
+    <div class="hint">Tip op Android: gebruik <b>Chrome</b> of <b>Samsung Internet</b> voor de Bluetooth-knop.</div>
+  </div>
+
+  <div class="foot">Weishack · lokaal verbinden</div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  // ---- configuratie: moet overeenkomen met het BLE-servertje op de Pi ----
+  var PORT        = 8090;
+  var LOCAL_HOST  = "weishack.local";
+  var NAME_PREFIX = "Weishack";
+  var SERVICE_UUID = "e9a5c0de-1000-4000-a000-000000000001";
+  var IP_CHAR_UUID = "e9a5c0de-1000-4000-a000-000000000002";
+  var LS_KEY = "weishack.lastip";
+
+  function urlFor(host){ return "http://" + host + ":" + PORT; }
+  function go(host){ location.href = urlFor(host); }
+  function saveIp(ip){ try{ localStorage.setItem(LS_KEY, ip); }catch(e){} }
+  function lastIp(){ try{ return localStorage.getItem(LS_KEY)||""; }catch(e){ return ""; } }
+  function validIp(s){ return /^\d{1,3}(\.\d{1,3}){3}$/.test(s); }
+
+  window.manual = function(id){
+    var v = (document.getElementById(id).value||"").trim();
+    if(!validIp(v)){ alert("Vul een geldig IP-adres in, bv. 192.168.0.50"); return; }
+    saveIp(v); go(v);
+  };
+
+  // ---- platformdetectie ----
+  var ua = navigator.userAgent || "";
+  var isIOS = /iPhone|iPad|iPod/i.test(ua) ||
+              (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1); // iPad die zich als Mac voordoet
+  var isMac = /Macintosh/.test(ua);
+  var isAndroid = /Android/i.test(ua);
+  var hasBT = (typeof navigator.bluetooth !== "undefined");
+
+  function show(id){ document.getElementById(id).classList.remove("hide"); }
+
+  if(isAndroid && hasBT){
+    initAndroid();
+  } else if(isIOS || isMac){
+    initIOS();
+  } else if(hasBT){
+    initAndroid();            // desktop Chrome met Bluetooth kan ook
+  } else {
+    initFallback();
+  }
+
+  // ---- Android: Web Bluetooth ----
+  function initAndroid(){
+    show("androidView");
+    var btn = document.getElementById("btConnect");
+    var last = document.getElementById("btLast");
+    var st  = document.getElementById("btStatus");
+    var li = lastIp();
+    if(validIp(li)){
+      last.textContent = "Open laatst gebruikte (" + li + ")";
+      last.classList.remove("hide");
+      last.onclick = function(){ go(li); };
+    }
+    btn.onclick = function(){ connectBT(st); };
+  }
+
+  function connectBT(st){
+    st.className = "status";
+    st.textContent = "Bluetooth openen…";
+    navigator.bluetooth.requestDevice({
+      filters: [{ namePrefix: NAME_PREFIX }],
+      optionalServices: [SERVICE_UUID]
+    }).then(function(dev){
+      st.textContent = "Verbinden met " + (dev.name||"Weishack") + "…";
+      return dev.gatt.connect();
+    }).then(function(server){
+      return server.getPrimaryService(SERVICE_UUID);
+    }).then(function(svc){
+      return svc.getCharacteristic(IP_CHAR_UUID);
+    }).then(function(ch){
+      return ch.readValue();
+    }).then(function(val){
+      var ip = new TextDecoder("utf-8").decode(val).trim();
+      if(!validIp(ip)){ throw new Error("Ongeldig adres ontvangen: " + ip); }
+      st.textContent = "Gevonden: " + ip + " — openen…";
+      saveIp(ip);
+      go(ip);
+    }).catch(function(err){
+      st.className = "status err";
+      var m = (err && err.message) || String(err);
+      if(/cancell?ed|User cancelled/i.test(m)){ st.textContent = "Geannuleerd."; }
+      else { st.textContent = "Niet gelukt: " + m; }
+    });
+  }
+
+  // ---- iOS / macOS: mDNS-naam ----
+  function initIOS(){
+    show("iosView");
+    var link = document.getElementById("iosLink");
+    link.href = urlFor(LOCAL_HOST);
+    var li = lastIp();
+    if(validIp(li)){ document.getElementById("iosIp").value = li; }
+    setTimeout(function(){ go(LOCAL_HOST); }, 600); // automatische poging
+  }
+
+  // ---- fallback ----
+  function initFallback(){
+    show("fallbackView");
+    document.getElementById("fbLocal").href = urlFor(LOCAL_HOST);
+    var li = lastIp();
+    if(validIp(li)){ document.getElementById("fbIp").value = li; }
+  }
+})();
+</script>
+</body>
+</html>
