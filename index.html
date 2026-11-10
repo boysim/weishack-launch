@@ -117,7 +117,10 @@
 
   function show(id){ document.getElementById(id).classList.remove("hide"); }
 
-  if(isAndroid && hasBT){
+  var forceBT = /[?&]bt=1/.test(location.search);   // testschakelaar: forceer Bluetooth
+  if(forceBT && hasBT){
+    initAndroid();
+  } else if(isAndroid && hasBT){
     initAndroid();
   } else if(isIOS || isMac){
     initIOS(isIOS);
@@ -178,7 +181,7 @@
     link.href = urlFor(LOCAL_HOST);
     var li = lastIp();
     if(validIp(li)){ document.getElementById("iosIp").value = li; }
-    if(autoRedirect){ setTimeout(function(){ go(LOCAL_HOST); }, 600); }
+    if(autoRedirect){ setTimeout(function(){ go(LOCAL_HOST); }, 600); } // enkel echte iOS
   }
 
   // ---- fallback ----
