@@ -120,7 +120,7 @@
   if(isAndroid && hasBT){
     initAndroid();
   } else if(isIOS || isMac){
-    initIOS();
+    initIOS(isIOS);
   } else if(hasBT){
     initAndroid();            // desktop Chrome met Bluetooth kan ook
   } else {
@@ -172,13 +172,13 @@
   }
 
   // ---- iOS / macOS: mDNS-naam ----
-  function initIOS(){
+  function initIOS(autoRedirect){
     show("iosView");
     var link = document.getElementById("iosLink");
     link.href = urlFor(LOCAL_HOST);
     var li = lastIp();
     if(validIp(li)){ document.getElementById("iosIp").value = li; }
-    setTimeout(function(){ go(LOCAL_HOST); }, 600); // automatische poging
+    if(autoRedirect){ setTimeout(function(){ go(LOCAL_HOST); }, 600); }
   }
 
   // ---- fallback ----
