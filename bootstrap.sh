@@ -8,15 +8,15 @@
 #    $1  GitHub read-only token   (verplicht) -> privé-repo lezen + OTA
 #    $2  Grafana Cloud logs-token (optioneel) -> logverzending meteen aan
 #
-#  Optioneel: WEISHACK_BRANCH=stable vooraan voor de productie-branch
-#  (standaard 'main' = test).
+#  Standaard 'stable' (productie). Voor een testtoestel: WEISHACK_BRANCH=main
+#  vooraan (of main-only via de channels/<id>-override achteraf).
 # =====================================================================
 set -euo pipefail
 [[ $EUID -eq 0 ]] || { echo "Draai met sudo."; exit 1; }
 
 TOKEN="${1:-${WEISHACK_TOKEN:-}}"
 GLOKI="${2:-${GCLOUD_LOGS_TOKEN:-}}"
-BRANCH="${WEISHACK_BRANCH:-main}"
+BRANCH="${WEISHACK_BRANCH:-stable}"
 OWNER_REPO="boysim/weishack"
 [[ -n "$TOKEN" ]] || { echo "Gebruik: sudo bash bootstrap.sh <GITHUB_READ_TOKEN> [GRAFANA_LOGS_TOKEN]"; exit 1; }
 
